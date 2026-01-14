@@ -13,6 +13,7 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -21,7 +22,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'channels',
     'core',
+    'apps.session',
 ]
 
 MIDDLEWARE = [
@@ -59,6 +62,15 @@ REST_FRAMEWORK = {
 }
 
 WSGI_APPLICATION = 'kairos.wsgi.application'
+
+# Channels configuration for WebSocket support
+ASGI_APPLICATION = 'kairos.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
 
 LANGUAGE_CODE = 'en-us'
 
