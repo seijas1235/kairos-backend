@@ -5,6 +5,14 @@ mysqlclient==2.1.1
 python-dotenv==1.0.0
 django-cors-headers==3.14.0
 pytest-django==4.5.2
-google-genai==0.1.0
 channels==4.0.0
 daphne==4.0.0
+
+# Gemini 3 SDK
+google-generativeai==0.3.0
+
+# Additional dependencies for agents
+pillow==10.1.0
+numpy==1.24.3
+asyncio==3.4.3
+aiohttp==3.9.1
