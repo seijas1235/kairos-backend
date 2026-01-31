@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'channels',
     'core',
     'apps.session',
+    'apps.agents',  # Multi-agent system
 ]
 
 MIDDLEWARE = [
