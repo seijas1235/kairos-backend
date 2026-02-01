@@ -37,7 +37,8 @@ class LessonGeneratorAgent:
         topic: str,
         level: str = "beginner",
         learning_style: str = "mixed",
-        age: int = None
+        age: int = None,
+        alias: str = None
     ) -> Dict[str, Any]:
         """
         Generate a complete lesson on the given topic.
@@ -47,11 +48,12 @@ class LessonGeneratorAgent:
             level: beginner, intermediate, or advanced
             learning_style: visual, textual, interactive, or mixed
             age: Optional age for age-appropriate content
+            alias: Optional student name/alias for personalization
             
         Returns:
             Dictionary with lesson structure including title, description, and content blocks
         """
-        prompt = self._build_lesson_prompt(topic, level, learning_style, age)
+        prompt = self._build_lesson_prompt(topic, level, learning_style, age, alias)
         
         try:
             response = self.model.generate_content(prompt)
@@ -77,32 +79,41 @@ class LessonGeneratorAgent:
         topic: str,
         level: str,
         learning_style: str,
-        age: int
+        age: int,
+        alias: str
     ) -> str:
         """Build the prompt for lesson generation."""
         
         age_context = f" for a {age}-year-old student" if age else ""
+        student_name = alias if alias else "the student"
+        greeting = f"Hello {alias}! " if alias else ""
         
         prompt = f"""You are an expert educator creating a personalized lesson{age_context}.
 
-**Lesson Requirements:**
+**Student Information:**
+- Name: {student_name}
 - Topic: {topic}
 - Level: {level}
 - Learning Style: {learning_style}
-- Make it engaging, clear, and well-structured
+
+**IMPORTANT - Personalization:**
+- Address the student by name ({student_name}) throughout the lesson
+- Use friendly, encouraging language
+- Make the content feel personal and engaging
+- Example: "{greeting}Let's explore {topic} together!"
 
 **Generate a complete lesson with:**
 
 1. **Title**: Catchy and descriptive
-2. **Description**: 2-3 sentences about what the student will learn
+2. **Description**: 2-3 sentences about what {student_name} will learn
 3. **Learning Objectives**: 3-5 specific, measurable objectives
 4. **Content Blocks**: 5-7 blocks of content
 
 **Content Block Types:**
-- **explanation**: Core concepts and theory
+- **explanation**: Core concepts and theory (address {student_name} directly)
 - **example**: Real-world examples and applications
 - **visual**: Descriptions for visualizations/diagrams
-- **practice**: Interactive questions or exercises
+- **practice**: Interactive questions or exercises (use {student_name}'s name)
 - **summary**: Key takeaways
 
 **Learning Style Focus:**
@@ -110,6 +121,11 @@ class LessonGeneratorAgent:
 - textual: Focus on clear explanations and written content
 - interactive: Include more practice and hands-on blocks
 - mixed: Balance all types
+
+**Personalization Examples:**
+- "Great job, {student_name}! You're making excellent progress."
+- "{student_name}, let's try this example together."
+- "I know you can do this, {student_name}!"
 
 **Return ONLY valid JSON in this exact format:**
 ```json
@@ -126,7 +142,7 @@ class LessonGeneratorAgent:
       "id": "block_1",
       "type": "explanation",
       "title": "Block title",
-      "content": "Detailed content here...",
+      "content": "Detailed content here with {student_name} mentioned...",
       "duration_minutes": 5
     }},
     {{
@@ -147,6 +163,7 @@ class LessonGeneratorAgent:
 - Make content engaging and interactive
 - Include practical applications
 - Keep explanations clear and concise
+- Address {student_name} by name throughout
 - Return ONLY the JSON, no markdown formatting or extra text
 """
         

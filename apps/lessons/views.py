@@ -43,6 +43,7 @@ def generate_lesson(request):
         level = request.data.get('level', 'beginner')
         learning_style = request.data.get('learning_style', 'mixed')
         age = request.data.get('age')
+        alias = request.data.get('alias')  # Student name/alias
         
         # Validate required fields
         if not topic:
@@ -67,7 +68,7 @@ def generate_lesson(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        logger.info(f"Generating lesson: topic={topic}, level={level}, style={learning_style}, age={age}")
+        logger.info(f"Generating lesson: topic={topic}, level={level}, style={learning_style}, age={age}, alias={alias}")
         
         # Generate lesson using LessonGeneratorAgent
         agent = LessonGeneratorAgent()
@@ -75,7 +76,8 @@ def generate_lesson(request):
             topic=topic,
             level=level,
             learning_style=learning_style,
-            age=age
+            age=age,
+            alias=alias
         )
         
         # Add lesson ID
