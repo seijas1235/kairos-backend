@@ -3,5 +3,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # API routes will be added here as needed
+    path('api/v1/lessons/', include('apps.lessons.urls')),
 ]

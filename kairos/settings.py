@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'channels',
     'apps.session',
     'apps.agents',  # Multi-agent system
+    'apps.lessons',  # Dynamic lesson generation
 ]
 
 MIDDLEWARE = [
