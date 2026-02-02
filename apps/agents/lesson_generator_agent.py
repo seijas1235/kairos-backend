@@ -81,7 +81,7 @@ class LessonGeneratorAgent:
                 'level': level,
                 'learning_style': learning_style,
                 'age': age,
-                'generated_by': 'gemini-1.5-pro',
+                'generated_by': 'gemini-3-flash',
                 'curriculum_version': '2.0'
             }
             

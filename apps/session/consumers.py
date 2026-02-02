@@ -5,7 +5,7 @@ Integrates with multi-agent orchestrator for intelligent content adaptation.
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from typing import Dict, Any
-from apps.agents.orchestrator import AgentOrchestrator
+from apps.agents.orchestrator import AIOrchestrator
 
 
 class SessionConsumer(AsyncWebsocketConsumer):
@@ -20,7 +20,7 @@ class SessionConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f'session_{self.session_id}'
         
         # Initialize agent orchestrator for this session
-        self.orchestrator = AgentOrchestrator()
+        self.orchestrator = AIOrchestrator()
 
         # Join room group
         await self.channel_layer.group_add(
