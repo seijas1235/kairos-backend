@@ -72,9 +72,10 @@ def generate_lesson(request):
         
         logger.info(f"Generating lesson: topic={topic}, level={level}, style={learning_style}, age={age}, alias={alias}, language={language}, excluded={len(excluded_topics)}")
         
-        # Generate lesson using LessonGeneratorAgent
-        agent = LessonGeneratorAgent()
-        lesson_data = agent.generate_lesson(
+        # Generate lesson using AI Orchestrator (manages Gemini 3 models)
+        from apps.agents.orchestrator import AIOrchestrator
+        orchestrator = AIOrchestrator()
+        lesson_data = orchestrator.generate_lesson(
             topic=topic,
             level=level,
             learning_style=learning_style,

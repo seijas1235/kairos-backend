@@ -1,271 +1,140 @@
 """
-Agent Orchestrator - The brain of KAIROS multi-agent system.
-Coordinates all 5 agents to provide adaptive learning experience.
+AI Orchestrator - Simplified multi-model coordinator for KAIROS.
+
+Coordinates Gemini 3 models:
+1. Gemini 3 Flash - Lesson generation (fast)
+2. Gemini 3 Pro - Content adaptation (intelligent)
 """
-import asyncio
+import logging
 from typing import Dict, Any, List, Optional
-from datetime import datetime
 
-from .emotion_agent import EmotionAgent
-from .content_adapter_agent import ContentAdapterAgent
-from .learning_path_agent import LearningPathAgent
-from .assessment_agent import AssessmentAgent
-from .personality_agent import PersonalityAgent
+logger = logging.getLogger(__name__)
 
 
-class AgentOrchestrator:
+class AIOrchestrator:
     """
-    Orchestrates multiple AI agents to create adaptive learning experience.
+    Simplified orchestrator that coordinates Gemini 3 models.
     
-    Agents:
-    1. EmotionAgent (Gemini 3 Flash) - Detects emotions
-    2. ContentAdapterAgent (Gemini 3 Pro) - Adapts content
-    3. LearningPathAgent (Gemini 3 Pro) - Optimizes learning path
-    4. AssessmentAgent (Gemini 3 Pro) - Evaluates comprehension
-    5. PersonalityAgent (Gemini 3 Flash) - Personalizes tone
+    Currently manages:
+    - LessonGeneratorAgent (Gemini 3 Flash)
+    - ContentAdapterAgent (Gemini 3 Pro) - when created
     """
     
     def __init__(self):
-        """Initialize all agents."""
-        self.emotion_agent = EmotionAgent()
-        self.content_agent = ContentAdapterAgent()
-        self.path_agent = LearningPathAgent()
-        self.assessment_agent = AssessmentAgent()
-        self.personality_agent = PersonalityAgent()
+        """Initialize orchestrator with available agents."""
+        logger.info("Initializing AI Orchestrator...")
         
-        # Session state
-        self.emotion_history: List[Dict] = []
-        self.adaptation_history: List[Dict] = []
-        self.last_adaptation_time: Optional[datetime] = None
+        # Import here to avoid circular dependencies
+        from .lesson_generator_agent import LessonGeneratorAgent
         
-        # Configuration
-        self.adaptation_cooldown = 10  # seconds between adaptations
-        self.emotion_threshold = 3  # consecutive negative emotions before adapting
+        self.lesson_generator = LessonGeneratorAgent()
+        
+        # Content adapter will be initialized when created
+        self.content_adapter = None
+        
+        logger.info(f"AI Orchestrator initialized with Gemini 3 models")
     
-    async def process_frame(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_lesson(
+        self,
+        topic: str,
+        level: str,
+        learning_style: str,
+        age: Optional[int] = None,
+        alias: Optional[str] = None,
+        language: str = "en",
+        excluded_topics: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """
-        Process a single video frame and determine actions.
-        Called every 3 seconds during learning session.
+        Generate lesson using Gemini 3 Flash.
         
-        Args:
-            session_data: {
-                'frame': base64 image,
-                'timestamp': ISO timestamp,
-                'current_content': Dict,
-                'user_profile': Dict,
-                'topic': str,
-                'session_id': str
-            }
-            
-        Returns:
-            {
-                'action': str (continue|adapt|assess|next_lesson),
-                'emotion': Dict,
-                'adapted_content': Dict (if action=adapt),
-                'assessment': Dict (if action=assess),
-                'next_lesson': Dict (if action=next_lesson)
-            }
+        Routes request to LessonGeneratorAgent which uses gemini-3-flash-preview.
         """
+        logger.info(f"[Orchestrator] Generating lesson: topic='{topic}', model=Gemini 3 Flash")
+        
         try:
-            # 1. ALWAYS detect emotion
-            emotion_result = await self.emotion_agent.process({
-                'frame': session_data['frame'],
-                'timestamp': session_data['timestamp']
-            })
+            lesson_data = self.lesson_generator.generate_lesson(
+                topic=topic,
+                level=level,
+                learning_style=learning_style,
+                age=age,
+                alias=alias,
+                language=language,
+                excluded_topics=excluded_topics
+            )
             
-            # Store emotion history
-            self.emotion_history.append(emotion_result)
+            topics_count = lesson_data.get('curriculum', {}).get('total_topics', 0)
+            logger.info(f"[Orchestrator] Lesson generated: {topics_count} topics created")
             
-            # 2. Check if we need to adapt content
-            if self._should_adapt_content(emotion_result):
-                return await self._adapt_content(session_data, emotion_result)
-            
-            # 3. Check if block is completed (for assessment)
-            if session_data.get('block_completed', False):
-                return await self._assess_and_recommend(session_data, emotion_result)
-            
-            # 4. Default: continue with current content
-            return {
-                'action': 'continue',
-                'emotion': emotion_result,
-                'message': 'Continuing with current content'
-            }
+            return lesson_data
             
         except Exception as e:
-            print(f"Error in orchestrator: {e}")
-            return {
-                'action': 'error',
-                'error': str(e),
-                'emotion': {'emotion': 'neutral', 'confidence': 0.0}
-            }
+            logger.error(f"[Orchestrator] Error generating lesson: {str(e)}")
+            raise
     
-    async def _adapt_content(self, session_data: Dict, emotion: Dict) -> Dict[str, Any]:
+    def adapt_content(
+        self,
+        original_content: str,
+        emotion_state: str,
+        topic: str,
+        level: str,
+        learning_style: str,
+        language: str = "en"
+    ) -> Dict[str, Any]:
         """
-        Adapt content based on detected emotion.
-        Uses ContentAdapterAgent and PersonalityAgent.
+        Adapt content using Gemini 3 Pro (when implemented).
+        
+        Currently returns original content as fallback.
         """
-        try:
-            # Get personality style
-            personality = await self.personality_agent.process({
-                'user_profile': session_data.get('user_profile', {}),
-                'current_emotion': emotion['emotion'],
-                'topic': session_data.get('topic', ''),
-                'difficulty': session_data.get('difficulty', 'intermediate')
-            })
-            
-            # Adapt content
-            adapted = await self.content_agent.process({
-                'current_content': session_data['current_content'],
-                'emotion': emotion['emotion'],
-                'learning_style': session_data.get('user_profile', {}).get('learning_style', 'visual'),
-                'topic': session_data.get('topic', ''),
-                'difficulty': session_data.get('difficulty', 'intermediate')
-            })
-            
-            # Record adaptation
-            adaptation_event = {
-                'timestamp': datetime.now().isoformat(),
-                'emotion': emotion['emotion'],
-                'strategy': adapted['strategy'],
-                'explanation': adapted['explanation'],
-                'personality': personality
-            }
-            self.adaptation_history.append(adaptation_event)
-            self.last_adaptation_time = datetime.now()
-            
+        logger.info(f"[Orchestrator] Content adaptation requested for emotion: {emotion_state}")
+        
+        if self.content_adapter is None:
+            logger.warning("[Orchestrator] ContentAdapterAgent not yet implemented, using fallback")
             return {
-                'action': 'adapt',
-                'emotion': emotion,
-                'adapted_content': adapted['adapted_content'],
-                'strategy': adapted['strategy'],
-                'explanation': adapted['explanation'],
-                'personality': personality,
-                'adaptation_history': self.adaptation_history[-5:]  # Last 5 adaptations
+                'adapted_content': original_content,
+                'adaptation_type': 'none',
+                'explanation': 'Content adapter not yet implemented'
             }
+        
+        try:
+            adapted = self.content_adapter.adapt_content(
+                original_content=original_content,
+                emotion_state=emotion_state,
+                topic=topic,
+                level=level,
+                learning_style=learning_style,
+                language=language
+            )
+            
+            logger.info(f"[Orchestrator] Content adapted successfully")
+            return adapted
             
         except Exception as e:
-            print(f"Error adapting content: {e}")
+            logger.error(f"[Orchestrator] Error adapting content: {str(e)}")
             return {
-                'action': 'continue',
-                'emotion': emotion,
-                'error': str(e)
+                'adapted_content': original_content,
+                'adaptation_type': 'error',
+                'explanation': f'Adaptation failed: {str(e)}'
             }
     
-    async def _assess_and_recommend(self, session_data: Dict, emotion: Dict) -> Dict[str, Any]:
-        """
-        Assess comprehension and recommend next lesson.
-        Uses AssessmentAgent and LearningPathAgent.
-        """
-        try:
-            # Assess current lesson
-            assessment = await self.assessment_agent.process({
-                'topic': session_data.get('topic', ''),
-                'content_covered': session_data.get('content_summary', ''),
-                'student_responses': session_data.get('responses', []),
-                'emotion_during_learning': self.emotion_history,
-                'time_spent': session_data.get('time_spent', 0)
-            })
-            
-            # Recommend next lesson
-            next_lesson = await self.path_agent.process({
-                'emotion_history': self.emotion_history,
-                'completed_lessons': session_data.get('completed_lessons', []),
-                'current_lesson': session_data.get('current_lesson', ''),
-                'user_profile': session_data.get('user_profile', {}),
-                'available_lessons': session_data.get('available_lessons', [])
-            })
-            
-            # Clear emotion history for next lesson
-            self.emotion_history = []
-            self.adaptation_history = []
-            
-            return {
-                'action': 'next_lesson',
-                'emotion': emotion,
-                'assessment': assessment,
-                'next_lesson': next_lesson['next_lesson'],
-                'learning_modality': next_lesson['learning_modality'],
-                'pacing': next_lesson['pacing_recommendation'],
-                'reasoning': next_lesson['reasoning']
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get information about active models."""
+        info = {
+            'lesson_generator': {
+                'model': self.lesson_generator.model_name,
+                'config': self.lesson_generator.generation_config,
+                'status': 'active'
             }
-            
-        except Exception as e:
-            print(f"Error in assessment: {e}")
-            return {
-                'action': 'continue',
-                'emotion': emotion,
-                'error': str(e)
-            }
-    
-    def _should_adapt_content(self, emotion: Dict) -> bool:
-        """
-        Determine if content should be adapted based on emotion.
-        
-        Rules:
-        1. Don't adapt if recently adapted (cooldown)
-        2. Adapt if negative emotion persists
-        3. Adapt if attention/stress levels are concerning
-        """
-        # Check cooldown
-        if self.last_adaptation_time:
-            seconds_since_last = (datetime.now() - self.last_adaptation_time).total_seconds()
-            if seconds_since_last < self.adaptation_cooldown:
-                return False
-        
-        # Check for negative emotions
-        negative_emotions = ['confused', 'bored', 'frustrated']
-        if emotion['emotion'] in negative_emotions:
-            # Check if emotion persists
-            recent_emotions = self.emotion_history[-self.emotion_threshold:]
-            if len(recent_emotions) >= self.emotion_threshold:
-                negative_count = sum(
-                    1 for e in recent_emotions 
-                    if e.get('emotion') in negative_emotions
-                )
-                if negative_count >= self.emotion_threshold:
-                    return True
-        
-        # Check attention/stress levels
-        attention = emotion.get('attention_level', 5)
-        stress = emotion.get('stress_level', 5)
-        
-        if attention < 4 or stress > 7:
-            return True
-        
-        return False
-    
-    def get_session_analytics(self) -> Dict[str, Any]:
-        """
-        Get analytics for current session.
-        
-        Returns:
-            Summary of emotions, adaptations, and engagement metrics
-        """
-        if not self.emotion_history:
-            return {'status': 'no_data'}
-        
-        emotions = [e.get('emotion', 'neutral') for e in self.emotion_history]
-        attentions = [e.get('attention_level', 5) for e in self.emotion_history]
-        stresses = [e.get('stress_level', 5) for e in self.emotion_history]
-        
-        return {
-            'total_detections': len(self.emotion_history),
-            'total_adaptations': len(self.adaptation_history),
-            'emotion_distribution': {
-                'engaged': emotions.count('engaged'),
-                'confused': emotions.count('confused'),
-                'bored': emotions.count('bored'),
-                'frustrated': emotions.count('frustrated'),
-                'neutral': emotions.count('neutral')
-            },
-            'avg_attention': sum(attentions) / len(attentions),
-            'avg_stress': sum(stresses) / len(stresses),
-            'engagement_rate': round((emotions.count('engaged') / len(emotions)) * 100, 1),
-            'adaptation_strategies_used': [a['strategy'] for a in self.adaptation_history]
         }
-    
-    def reset_session(self):
-        """Reset session state for new learning session."""
-        self.emotion_history = []
-        self.adaptation_history = []
-        self.last_adaptation_time = None
+        
+        if self.content_adapter:
+            info['content_adapter'] = {
+                'model': self.content_adapter.model_name,
+                'config': self.content_adapter.generation_config,
+                'status': 'active'
+            }
+        else:
+            info['content_adapter'] = {
+                'status': 'not_implemented'
+            }
+        
+        return info
