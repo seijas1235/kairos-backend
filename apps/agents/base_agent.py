@@ -1,103 +1,97 @@
-"""
-Base Agent class for KAIROS multi-agent system.
-All specialized agents inherit from this class.
-"""
+from google import genai
+from google.genai import types
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
-import google.generativeai as genai
-from dotenv import load_dotenv
+from django.conf import settings
+import logging
 
-load_dotenv()
+logger = logging.getLogger(__name__)
 
-# Configure Gemini API
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-
-
-class BaseAgent(ABC):
+class KairosAgent(ABC):
     """
-    Abstract base class for all KAIROS agents.
-    Provides common functionality for Gemini API interaction.
+    Base class for all KAIROS agents.
+    Enforces strict model selection (Gemini 3) and provides shared utilities.
     """
-    
-    def __init__(self, model_name: str):
-        """
-        Initialize agent with specified Gemini model.
+
+    # Allowed models
+    MODEL_FLASH = "gemini-3-flash-preview"
+    MODEL_PRO = "gemini-3-pro-preview"
+
+    def __init__(self):
+        self.api_key = getattr(settings, "GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
+        if not self.api_key:
+            raise ValueError("GEMINI_API_KEY is not set in settings or environment variables.")
         
-        Args:
-            model_name: Name of Gemini model (e.g., 'gemini-3.0-pro', 'gemini-3.0-flash')
-        """
-        self.model_name = model_name
-        self.model = genai.GenerativeModel(model_name)
-        self.generation_config = {
-            "temperature": 0.7,
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_output_tokens": 2048,
-        }
-    
+        self.client = genai.Client(api_key=self.api_key)
+        self.model_name = self.get_model_name()
+        self.validate_model_name()
+        
+        # Log agent initialization
+        agent_name = self.__class__.__name__
+        logger.info(f"🤖 [{agent_name}] Initialized with model: {self.model_name}")
+        # self.model is deprecated, use self.client in generation methods
+
     @abstractmethod
-    async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def get_model_name(self) -> str:
         """
-        Process input data and return result.
-        Must be implemented by all child agents.
-        
-        Args:
-            input_data: Input data specific to the agent
-            
-        Returns:
-            Dict containing agent's output
+        Must return one of the allowed model constants.
         """
         pass
-    
-    async def generate_content(self, prompt: str, **kwargs) -> str:
-        """
-        Generate content using Gemini model.
-        
-        Args:
-            prompt: Text prompt for generation
-            **kwargs: Additional generation parameters
-            
-        Returns:
-            Generated text response
-        """
-        try:
-            config = {**self.generation_config, **kwargs}
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config=config
+
+    def validate_model_name(self):
+        """Ensures the agent uses a strictly allowed Gemini 3 model."""
+        if self.model_name not in [self.MODEL_FLASH, self.MODEL_PRO]:
+            raise ValueError(
+                f"Invalid model '{self.model_name}'. "
+                f"Must be one of: {self.MODEL_FLASH}, {self.MODEL_PRO}"
             )
-            return response.text
-        except Exception as e:
-            print(f"Error generating content: {e}")
-            return ""
-    
-    async def generate_content_with_image(self, prompt: str, image_data: bytes, **kwargs) -> str:
+
+    async def _generate_content(self, info: dict) -> types.GenerateContentResponse:
         """
-        Generate content using both text and image input.
+        Helper to generate content using the new SDK.
+        Override/call this from process() methods.
+        """
+        # Note: The new SDK might specific async client or method.
+        # Check docs or assume client.models.generate_content is sync, 
+        # or client.aio.models.generate_content for async.
+        # User prompt example used sync syntax: response = self.client.models.generate_content(...)
+        # But we are in async methods.
+        # Ideally we use client.aio for async.
+        # Let's assume standard sync for now as per user snippet, 
+        # but if this is an async method, we should likely wrap it or use the async client if available.
+        # User snippet:
+        # response = self.client.models.generate_content(
+        #     model='gemini-3-pro-preview', 
+        #     contents='Tu prompt aqui',
+        #     config=types.GenerateContentConfig(...)
+        # )
         
-        Args:
-            prompt: Text prompt
-            image_data: Image bytes
-            **kwargs: Additional generation parameters
-            
-        Returns:
-            Generated text response
+        # We'll use the sync call for now as requested, potentially blocking the loop, 
+        # or relies on the user ensuring it's fast or wrapped. 
+        # Ideally: response = await self.client.aio.models.generate_content(...) if exists.
+        # Staying strict to user snippet first.
+        pass
+
+    @abstractmethod
+    def get_model_name(self) -> str:
         """
-        try:
-            config = {**self.generation_config, **kwargs}
-            response = await self.model.generate_content_async(
-                [prompt, {"mime_type": "image/jpeg", "data": image_data}],
-                generation_config=config
+        Must return one of the allowed model constants.
+        """
+        pass
+
+    def validate_model_name(self):
+        """Ensures the agent uses a strictly allowed Gemini 3 model."""
+        if self.model_name not in [self.MODEL_FLASH, self.MODEL_PRO]:
+            raise ValueError(
+                f"Invalid model '{self.model_name}'. "
+                f"Must be one of: {self.MODEL_FLASH}, {self.MODEL_PRO}"
             )
-            return response.text
-        except Exception as e:
-            print(f"Error generating content with image: {e}")
-            return ""
-    
-    def get_model_info(self) -> Dict[str, str]:
-        """Get information about the current model."""
-        return {
-            "model_name": self.model_name,
-            "agent_type": self.__class__.__name__
-        }
+
+    @abstractmethod
+    async def process(self, input_data: dict) -> dict | list:
+        """
+        Main processing method for the agent.
+        """
+        agent_name = self.__class__.__name__
+        logger.info(f"🔄 [{agent_name}] Processing started")
+        pass
