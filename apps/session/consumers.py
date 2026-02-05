@@ -1,145 +1,92 @@
-"""
-WebSocket consumer for real-time emotion detection and adaptive learning.
-Integrates with multi-agent orchestrator for intelligent content adaptation.
-"""
-from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from apps.agents.orchestrator import Orchestrator
+import logging
 import json
-from typing import Dict, Any
-from apps.agents.orchestrator import AIOrchestrator
 
+logger = logging.getLogger(__name__)
 
-class SessionConsumer(AsyncWebsocketConsumer):
+class KairosConsumer(AsyncJsonWebsocketConsumer):
     """
-    Handles WebSocket connections for real-time adaptive learning sessions.
-    Processes video frames and coordinates AI agents for emotion-based adaptation.
+    WebSocket consumer for handling KAIROS session communication.
+    Maintains persistent connection.
     """
 
-    async def connect(self) -> None:
-        """Accept WebSocket connection and initialize orchestrator."""
-        self.session_id = self.scope['url_route']['kwargs']['session_id']
-        self.room_group_name = f'session_{self.session_id}'
-        
-        # Initialize agent orchestrator for this session
-        self.orchestrator = AIOrchestrator()
-
-        # Join room group
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
-
+    async def connect(self):
+        # Initialize the Orchestrator for this session
+        self.orchestrator = Orchestrator()
         await self.accept()
-        
-        # Send connection confirmation
-        await self.send(text_data=json.dumps({
-            'type': 'connection_established',
-            'session_id': self.session_id,
-            'message': 'Connected to KAIROS adaptive learning session'
-        }))
+        logger.info("=" * 60)
+        logger.info("🔌 WebSocket connected: KairosConsumer")
+        logger.info("=" * 60)
+        # Do not close connection here
 
-    async def disconnect(self, close_code: int) -> None:
-        """Leave session room and cleanup on disconnect."""
-        # Get final analytics before cleanup
-        analytics = self.orchestrator.get_session_analytics()
+    async def disconnect(self, close_code):
+        logger.info("=" * 60)
+        logger.info(f"🔴 WebSocket disconnected with code: {close_code}")
         
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
+        # Log final agent usage stats before disconnect
+        if hasattr(self, 'orchestrator'):
+            logger.info("📊 FINAL AGENT USAGE STATS:")
+            for agent_name, count in self.orchestrator.agent_usage_stats.items():
+                status = "✅" if count > 0 else "⚪"
+                logger.info(f"  {status} {agent_name}: {count} calls")
+            
+            total_used = sum(1 for count in self.orchestrator.agent_usage_stats.values() if count > 0)
+            logger.info(f"🎯 Total: {total_used}/5 agents used in this session")
         
-        # Log session analytics (could save to database)
-        print(f"Session {self.session_id} ended. Analytics: {analytics}")
+        logger.info("=" * 60)
+        pass
 
-    async def receive(self, text_data: str) -> None:
+    async def receive_json(self, content):
         """
-        Handle incoming WebSocket messages.
-        
-        Message types:
-        - emotion_frame: Video frame for emotion detection
-        - block_completed: Student completed a content block
-        - get_analytics: Request session analytics
+        Receives JSON from Frontend, routes via Orchestrator.
         """
         try:
-            data = json.loads(text_data)
-            message_type = data.get('type')
-
-            if message_type == 'emotion_frame':
-                # Process frame through orchestrator
-                result = await self.orchestrator.process_frame({
-                    'frame': data.get('frame'),
-                    'timestamp': data.get('timestamp'),
-                    'current_content': data.get('current_content', {}),
-                    'user_profile': data.get('user_profile', {}),
-                    'topic': data.get('topic', ''),
-                    'difficulty': data.get('difficulty', 'intermediate'),
-                    'session_id': self.session_id
-                })
+            # content examples:
+            # {'frame': 'base64...', 'text': '...', 'style': 'Mixto'}
+            # {'start_lesson': True, 'style': 'Visual'}
+            
+            response_data = await self.orchestrator.process_websocket_message(content)
+            
+            # 🔍 DEBUG: Log exact payload being sent
+            logger.info(f"[DEBUG] Sending payload to frontend: {json.dumps(response_data, indent=2)}")
+            
+            # Format response for frontend with proper 'type' field
+            formatted_response = {}
+            
+            # If we have content (lesson chunks), send with type="lesson_content"
+            if 'content' in response_data:
+                formatted_response = {
+                    "type": "lesson_content",
+                    "content": response_data['content']
+                }
                 
-                # Send result back to client
-                await self.send(text_data=json.dumps({
-                    'type': 'emotion_result',
-                    **result
-                }))
-            
-            elif message_type == 'block_completed':
-                # Process block completion (triggers assessment)
-                result = await self.orchestrator.process_frame({
-                    'frame': data.get('frame', ''),
-                    'timestamp': data.get('timestamp'),
-                    'current_content': data.get('current_content', {}),
-                    'user_profile': data.get('user_profile', {}),
-                    'topic': data.get('topic', ''),
-                    'block_completed': True,
-                    'content_summary': data.get('content_summary', ''),
-                    'responses': data.get('responses', []),
-                    'time_spent': data.get('time_spent', 0),
-                    'completed_lessons': data.get('completed_lessons', []),
-                    'current_lesson': data.get('current_lesson', ''),
-                    'available_lessons': data.get('available_lessons', []),
-                    'session_id': self.session_id
-                })
+                # Optionally include emotion data if present
+                if 'emotion' in response_data:
+                    formatted_response['emotion'] = response_data['emotion']
                 
-                await self.send(text_data=json.dumps({
-                    'type': 'block_completed_result',
-                    **result
-                }))
+                await self.send_json(formatted_response)
+                logger.info(f"✅ Sent lesson_content with {len(response_data['content'])} chunks")
             
-            elif message_type == 'get_analytics':
-                # Return session analytics
-                analytics = self.orchestrator.get_session_analytics()
-                await self.send(text_data=json.dumps({
-                    'type': 'analytics',
-                    **analytics
-                }))
+            # If we have learning_path info, send it
+            if 'learning_path' in response_data:
+                await self.send_json({
+                    "type": "learning_path",
+                    "data": response_data['learning_path']
+                })
+                logger.info("✅ Sent learning_path data")
             
-            elif message_type == 'reset_session':
-                # Reset orchestrator for new lesson
-                self.orchestrator.reset_session()
-                await self.send(text_data=json.dumps({
-                    'type': 'session_reset',
-                    'message': 'Session state reset successfully'
-                }))
+            # Special handling for lesson_summary (final message)
+            if 'lesson_summary' in response_data:
+                # lesson_summary should already have "type": "lesson_summary"
+                await self.send_json(response_data['lesson_summary'])
+                logger.info("✅ Sent lesson_summary (final message)")
             
-            else:
-                # Unknown message type
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': f'Unknown message type: {message_type}'
-                }))
-
-        except json.JSONDecodeError:
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': 'Invalid JSON format'
-            }))
+            # 🔍 Connection remains OPEN - ready for next message
+            
         except Exception as e:
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': f'Error processing message: {str(e)}'
-            }))
-
-    async def session_message(self, event: Dict[str, Any]) -> None:
-        """Send message to WebSocket client (for group broadcasts)."""
-        message = event['message']
-        await self.send(text_data=json.dumps(message))
-
+            logger.error(f"Error processing message: {e}", exc_info=True)
+            await self.send_json({
+                "type": "error",
+                "message": "Internal server error processing your request."
+            })
