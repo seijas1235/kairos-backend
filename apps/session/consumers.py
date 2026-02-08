@@ -2,6 +2,7 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from apps.agents.orchestrator import Orchestrator
 import logging
 import json
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -40,53 +41,130 @@ class KairosConsumer(AsyncJsonWebsocketConsumer):
     async def receive_json(self, content):
         """
         Receives JSON from Frontend, routes via Orchestrator.
+        Supports: emotion frames, start_lesson, user_question, text input
         """
         try:
-            # content examples:
-            # {'frame': 'base64...', 'text': '...', 'style': 'Mixto'}
-            # {'start_lesson': True, 'style': 'Visual'}
+            # Log incoming message type
+            msg_keys = list(content.keys())
+            if 'user_question' in content:
+                logger.info(f"❓ User question received: {content.get('user_question', '')[:50]}...")
+            elif 'frame' in content:
+                logger.info("🎭 Emotion frame received")
+            elif 'start_lesson' in content:
+                logger.info(f"🚀 Start lesson: {content.get('topic', 'N/A')}")
+            else:
+                logger.info(f"📨 Message received with keys: {msg_keys}")
             
+            # Process through orchestrator
             response_data = await self.orchestrator.process_websocket_message(content)
             
-            # 🔍 DEBUG: Log exact payload being sent
-            logger.info(f"[DEBUG] Sending payload to frontend: {json.dumps(response_data, indent=2)}")
+            # 🔍 DEBUG: Log response type
+            logger.info(f"[DEBUG] Response type: {response_data.get('type', 'N/A')}")
             
-            # Format response for frontend with proper 'type' field
-            formatted_response = {}
+            # Handle different response types
             
-            # If we have content (lesson chunks), send with type="lesson_content"
-            if 'content' in response_data:
-                formatted_response = {
+            # 1. User question answers - send immediately (no streaming)
+            if 'user_question' in content and 'content' in response_data:
+                await self.send_json({
                     "type": "lesson_content",
                     "content": response_data['content']
-                }
-                
-                # Optionally include emotion data if present
-                if 'emotion' in response_data:
-                    formatted_response['emotion'] = response_data['emotion']
-                
-                await self.send_json(formatted_response)
-                logger.info(f"✅ Sent lesson_content with {len(response_data['content'])} chunks")
+                })
+                logger.info("✅ Sent Q&A answer immediately")
+                return
             
-            # If we have learning_path info, send it
+            # 2. Learning path info - send immediately
             if 'learning_path' in response_data:
                 await self.send_json({
                     "type": "learning_path",
                     "data": response_data['learning_path']
                 })
                 logger.info("✅ Sent learning_path data")
+                await asyncio.sleep(0.5)  # Brief pause before content
             
-            # Special handling for lesson_summary (final message)
+            # 3. Lesson content - STREAM progressively
+            if 'content' in response_data:
+                # Include emotion if present
+                emotion_data = response_data.get('emotion')
+                await self._stream_content_chunks(response_data['content'], emotion_data)
+            
+            # 4. Lesson summary - send immediately
             if 'lesson_summary' in response_data:
-                # lesson_summary should already have "type": "lesson_summary"
                 await self.send_json(response_data['lesson_summary'])
                 logger.info("✅ Sent lesson_summary (final message)")
             
-            # 🔍 Connection remains OPEN - ready for next message
+            # 5. Errors
+            if 'error' in response_data:
+                await self.send_json({
+                    "type": "error",
+                    "message": response_data['error']
+                })
+                logger.warning(f"⚠️ Sent error: {response_data['error']}")
             
         except Exception as e:
-            logger.error(f"Error processing message: {e}", exc_info=True)
+            logger.error(f"❌ Error processing message: {e}", exc_info=True)
             await self.send_json({
                 "type": "error",
                 "message": "Internal server error processing your request."
             })
+    
+    async def _stream_content_chunks(self, chunks: list, emotion_data: dict = None):
+        """
+        Stream content chunks progressively with reading-time delays.
+        Sends one chunk at a time for a natural, readable flow.
+        """
+        import asyncio
+        
+        logger.info(f"📤 Starting stream of {len(chunks)} chunks")
+        
+        for i, chunk in enumerate(chunks, 1):
+            # Prepare message
+            message = {
+                "type": "lesson_content",
+                "content": [chunk]  # Send ONE chunk at a time
+            }
+            
+            # Include emotion data only on first chunk
+            if i == 1 and emotion_data:
+                message['emotion'] = emotion_data
+            
+            # Send chunk
+            await self.send_json(message)
+            
+            logger.info(f"📤 [{i}/{len(chunks)}] Streamed: {chunk['type']}")
+            
+            # Calculate reading delay
+            delay = self._calculate_reading_delay(chunk)
+            
+            # Don't delay after last chunk
+            if i < len(chunks):
+                await asyncio.sleep(delay)
+        
+        logger.info(f"✅ Finished streaming {len(chunks)} chunks")
+    
+    def _calculate_reading_delay(self, chunk: dict) -> float:
+        """
+        Calculate appropriate delay based on chunk type and content.
+        Returns delay in seconds.
+        """
+        chunk_type = chunk.get('type', 'text')
+        
+        if chunk_type == 'text':
+            content = chunk.get('content', '')
+            words = len(content.split())
+            # Average reading speed: ~200 words/min = 3.33 words/sec
+            # Add 1 second minimum for very short texts
+            delay = max(2.0, words / 3.0)
+            return min(delay, 8.0)  # Cap at 8 seconds
+        
+        elif chunk_type == 'image_prompt':
+            # Images need time to view
+            return 2.0
+        
+        elif chunk_type == 'tutor_answer':
+            content = chunk.get('content', '')
+            words = len(content.split())
+            delay = max(2.0, words / 3.0)
+            return min(delay, 10.0)  # Longer cap for answers
+        
+        else:
+            return 1.5  # Default delay

@@ -7,6 +7,12 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('SECRET_KEY')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+
+# Gemini Models Configuration (configurable per environment)
+# Default to gemini-flash-latest (high quota: ~1500 requests/day on free tier)
+GEMINI_FLASH_MODEL = os.getenv('GEMINI_FLASH_MODEL', 'gemini-flash-latest')
+GEMINI_PRO_MODEL = os.getenv('GEMINI_PRO_MODEL', 'gemini-flash-latest')
 
 DEBUG = True
 

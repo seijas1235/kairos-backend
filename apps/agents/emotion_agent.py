@@ -1,143 +1,143 @@
-"""
-Emotion Detection Agent using Gemini 3 Flash for real-time emotion analysis.
-Uses computer vision to detect student emotions from webcam frames.
-"""
 import json
 import base64
-from typing import Dict, Any
-from .base_agent import BaseAgent
+from .base_agent import KairosAgent
+from google.genai import types
+import logging
 
+logger = logging.getLogger(__name__)
 
-class EmotionAgent(BaseAgent):
-    """
-    Detects student emotions from facial expressions using Gemini 3 Flash.
-    Optimized for speed (3-second intervals).
-    """
-    
-    def __init__(self):
-        """Initialize with Gemini 3 Flash for fast processing."""
-        super().__init__('gemini-3.0-flash')
-        self.emotion_states = ['engaged', 'confused', 'bored', 'frustrated', 'neutral']
-    
-    async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+class EmotionAgent(KairosAgent):
+    def get_model_name(self) -> str:
+        return self.MODEL_FLASH  # Use Flash for fast emotion detection
+
+    async def process(self, input_data: dict) -> dict:
         """
-        Analyze facial expression and detect emotion.
+        Analyzes facial expression from base64 frame using Gemini Vision (Flash).
+        Returns: {emotion: str, confidence: float, action: str}
+        """
+        frame_base64 = input_data.get('frame', '')
         
-        Args:
-            input_data: {
-                'frame': base64 encoded image,
-                'timestamp': ISO timestamp
+        if not frame_base64:
+            logger.warning("⚠️ [EmotionAgent] No frame provided")
+            return {
+                "emotion": "neutral",
+                "confidence": 0.0,
+                "action": "continue"
             }
-            
-        Returns:
-            {
-                'emotion': str (engaged|confused|bored|frustrated|neutral),
-                'confidence': float (0-1),
-                'attention_level': int (1-10),
-                'stress_level': int (1-10),
-                'timestamp': str
-            }
-        """
+        
         try:
-            frame_data = base64.b64decode(input_data['frame'])
+            # Decode base64 image
+            if ',' in frame_base64:
+                # Remove data:image/jpeg;base64, prefix if present
+                frame_base64 = frame_base64.split(',')[1]
             
-            prompt = f"""
-            Analyze this student's facial expression during a learning session.
+            try:
+                image_bytes = base64.b64decode(frame_base64)
+                logger.info(f"🎭 [EmotionAgent] Frame decoded: {len(image_bytes)} bytes")
+            except Exception as decode_error:
+                logger.error(f"❌ [EmotionAgent] Base64 decode failed: {decode_error}")
+                return {
+                    "emotion": "neutral",
+                    "confidence": 0.0,
+                    "action": "continue",
+                    "error": "decode_failed"
+                }
             
-            Determine:
-            1. Primary emotion: {', '.join(self.emotion_states)}
-            2. Confidence level (0-1)
-            3. Attention level (1-10, where 10 is highly focused)
-            4. Stress level (1-10, where 10 is very stressed)
+            logger.info(f"🎭 [EmotionAgent] Analyzing frame ({len(image_bytes)} bytes)")
             
-            Consider:
-            - Eye contact and gaze direction
-            - Facial muscle tension
-            - Posture (if visible)
-            - Overall engagement cues
+            # Prompt for emotion detection (EN ESPAÑOL para mejor contexto)
+            prompt = """Analiza la expresión facial de este estudiante durante una sesión de aprendizaje.
+
+Clasifica la emoción en UNA de estas categorías:
+- engaged: Estudiante enfocado, interesado, ojos atentos
+- confused: Estudiante muestra confusión, ceño fruncido, expresión incierta
+- bored: Estudiante se ve desinteresado, distraído o cansado
+- frustrated: Estudiante muestra signos de frustración o dificultad
+- neutral: No se detecta emoción fuerte
+
+Devuelve SOLO un objeto JSON con este formato exacto:
+{
+    "emotion": "engaged",
+    "confidence": 0.85,
+    "action": "continue"
+}
+
+Reglas:
+- emotion: una de las 5 categorías anteriores
+- confidence: número entre 0 y 1
+- action: "continue" si engaged/neutral, "adapt" si confused/bored/frustrated
+"""
             
-            Respond ONLY with valid JSON in this exact format:
-            {{
-                "emotion": "engaged",
-                "confidence": 0.85,
-                "attention_level": 8,
-                "stress_level": 3
-            }}
-            """
+            # REAL CALL TO GEMINI VISION (FLASH)
+            logger.info("📡 [EmotionAgent] Calling Gemini Vision API...")
             
-            response_text = await self.generate_content_with_image(
-                prompt,
-                frame_data,
-                temperature=0.3  # Lower temperature for more consistent results
+            response = self._generate_content(
+                contents=[
+                    types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type='image/jpeg'
+                    ),
+                    prompt
+                ],
+                config=types.GenerateContentConfig(
+                    response_mime_type='application/json',
+                    temperature=0.3  # Lower temperature for consistent classification
+                )
             )
             
+            logger.info(f"✅ [EmotionAgent] API response received")
+            
+            # Validate response
+            if not response or not response.text:
+                logger.warning("⚠️ [EmotionAgent] Empty response from Gemini Vision (possibly blocked)")
+                return {
+                    "emotion": "neutral",
+                    "confidence": 0.5,
+                    "action": "continue"
+                }
+            
             # Parse JSON response
-            result = json.loads(response_text.strip())
+            raw_text = response.text.strip()
+            logger.debug(f"📝 [EmotionAgent] Raw response: {raw_text[:200]}")
             
-            # Add timestamp
-            result['timestamp'] = input_data.get('timestamp')
+            # Clean markdown if present
+            if raw_text.startswith("```json"):
+                raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+            elif raw_text.startswith("```"):
+                raw_text = raw_text.replace("```", "").strip()
             
-            # Validate emotion state
-            if result['emotion'] not in self.emotion_states:
-                result['emotion'] = 'neutral'
+            result = json.loads(raw_text)
+            logger.debug(f"📊 [EmotionAgent] Parsed JSON: {result}")
             
-            return result
+            # Validate response structure
+            emotion = result.get('emotion', 'neutral')
+            confidence = result.get('confidence', 0.0)
+            action = result.get('action', 'continue')
+            
+            logger.info(f"✅ [EmotionAgent] Detected: {emotion} ({confidence*100:.0f}%) → {action}")
+            
+            return {
+                "emotion": emotion,
+                "confidence": float(confidence),
+                "action": action
+            }
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ [EmotionAgent] JSON parsing error: {e}")
+            if 'raw_text' in locals():
+                logger.error(f"📄 [EmotionAgent] Raw response was: {raw_text}")
+            return {
+                "emotion": "neutral",
+                "confidence": 0.0,
+                "action": "continue",
+                "error": "json_parse_failed"
+            }
             
         except Exception as e:
-            print(f"Error in EmotionAgent: {e}")
+            logger.error(f"❌ [EmotionAgent] Error analyzing frame: {e}", exc_info=True)
             return {
-                'emotion': 'neutral',
-                'confidence': 0.0,
-                'attention_level': 5,
-                'stress_level': 5,
-                'timestamp': input_data.get('timestamp'),
-                'error': str(e)
+                "emotion": "neutral",
+                "confidence": 0.0,
+                "action": "continue",
+                "error": str(e)
             }
-    
-    async def analyze_emotion_trend(self, emotion_history: list) -> Dict[str, Any]:
-        """
-        Analyze emotion trends over time.
-        
-        Args:
-            emotion_history: List of emotion detections
-            
-        Returns:
-            Trend analysis and recommendations
-        """
-        if not emotion_history:
-            return {'trend': 'stable', 'recommendation': 'continue'}
-        
-        # Count recent emotions (last 10)
-        recent = emotion_history[-10:]
-        emotion_counts = {}
-        for detection in recent:
-            emotion = detection.get('emotion', 'neutral')
-            emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
-        
-        # Determine dominant emotion
-        dominant = max(emotion_counts, key=emotion_counts.get)
-        
-        # Generate recommendation
-        if dominant in ['confused', 'frustrated']:
-            if emotion_counts[dominant] >= 5:
-                return {
-                    'trend': 'declining',
-                    'dominant_emotion': dominant,
-                    'recommendation': 'adapt_content',
-                    'urgency': 'high'
-                }
-        elif dominant == 'bored':
-            if emotion_counts[dominant] >= 4:
-                return {
-                    'trend': 'disengaging',
-                    'dominant_emotion': dominant,
-                    'recommendation': 'add_interactivity',
-                    'urgency': 'medium'
-                }
-        
-        return {
-            'trend': 'stable',
-            'dominant_emotion': dominant,
-            'recommendation': 'continue',
-            'urgency': 'low'
-        }

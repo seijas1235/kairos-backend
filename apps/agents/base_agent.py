@@ -10,12 +10,15 @@ logger = logging.getLogger(__name__)
 class KairosAgent(ABC):
     """
     Base class for all KAIROS agents.
-    Enforces strict model selection (Gemini 3) and provides shared utilities.
+    Provides shared utilities and configurable model selection.
+    Models are now configurable via .env (GEMINI_FLASH_MODEL and GEMINI_PRO_MODEL)
     """
 
-    # Allowed models
-    MODEL_FLASH = "gemini-3-flash-preview"
-    MODEL_PRO = "gemini-3-pro-preview"
+    # Allowed models - Loaded from .env
+    # Flash model (fast, cheaper, for camera/emotion)
+    MODEL_FLASH = getattr(settings, 'GEMINI_FLASH_MODEL', 'gemini-1.5-flash')
+    # Pro model (powerful, for reasoning/content)
+    MODEL_PRO = getattr(settings, 'GEMINI_PRO_MODEL', 'gemini-3-pro-preview')
 
     def __init__(self):
         self.api_key = getattr(settings, "GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
@@ -29,63 +32,97 @@ class KairosAgent(ABC):
         # Log agent initialization
         agent_name = self.__class__.__name__
         logger.info(f"🤖 [{agent_name}] Initialized with model: {self.model_name}")
-        # self.model is deprecated, use self.client in generation methods
 
     @abstractmethod
     def get_model_name(self) -> str:
         """
-        Must return one of the allowed model constants.
+        Must return one of the allowed model constants (MODEL_FLASH or MODEL_PRO).
         """
         pass
 
     def validate_model_name(self):
-        """Ensures the agent uses a strictly allowed Gemini 3 model."""
-        if self.model_name not in [self.MODEL_FLASH, self.MODEL_PRO]:
-            raise ValueError(
-                f"Invalid model '{self.model_name}'. "
-                f"Must be one of: {self.MODEL_FLASH}, {self.MODEL_PRO}"
-            )
-
-    async def _generate_content(self, info: dict) -> types.GenerateContentResponse:
-        """
-        Helper to generate content using the new SDK.
-        Override/call this from process() methods.
-        """
-        # Note: The new SDK might specific async client or method.
-        # Check docs or assume client.models.generate_content is sync, 
-        # or client.aio.models.generate_content for async.
-        # User prompt example used sync syntax: response = self.client.models.generate_content(...)
-        # But we are in async methods.
-        # Ideally we use client.aio for async.
-        # Let's assume standard sync for now as per user snippet, 
-        # but if this is an async method, we should likely wrap it or use the async client if available.
-        # User snippet:
-        # response = self.client.models.generate_content(
-        #     model='gemini-3-pro-preview', 
-        #     contents='Tu prompt aqui',
-        #     config=types.GenerateContentConfig(...)
-        # )
+        """Ensures the agent uses a valid Gemini model (Cleaned list for Hackathon)."""
+        allowed_models = [
+            # --- Gemini 3 (The Star of the Show) ---
+            'gemini-3-pro-preview',
+            'gemini-3-flash-preview',
+            
+            # --- Gemini 2.0 (High Speed / Next Gen) ---
+            'gemini-2.0-flash-exp',
+            'gemini-2.0-flash',
+            
+            # --- Gemini 1.5 (Stable Workhorses) ---
+            'gemini-1.5-flash',
+            'gemini-1.5-flash-001',
+            'gemini-1.5-flash-002',     # Versión recomendada estable
+            'gemini-1.5-flash-latest',
+            'gemini-1.5-pro',
+            'gemini-1.5-pro-001',
+            'gemini-1.5-pro-002',       # Versión recomendada estable
+            'gemini-1.5-pro-latest',
+        ]
         
-        # We'll use the sync call for now as requested, potentially blocking the loop, 
-        # or relies on the user ensuring it's fast or wrapped. 
-        # Ideally: response = await self.client.aio.models.generate_content(...) if exists.
-        # Staying strict to user snippet first.
-        pass
+        # Check if model name contains any of the allowed patterns
+        is_valid = any(allowed in self.model_name for allowed in allowed_models)
+        
+        if not is_valid:
+            logger.warning(f"⚠️  Model '{self.model_name}' not in standard whitelist. Proceeding anyway (Experimental Mode).")
 
-    @abstractmethod
-    def get_model_name(self) -> str:
+    def _generate_content(self, contents, config: types.GenerateContentConfig = None) -> types.GenerateContentResponse:
         """
-        Must return one of the allowed model constants.
+        Helper to generate content using google-genai SDK.
+        Includes permissive safety settings for Educational Content.
         """
-        pass
-
-    def validate_model_name(self):
-        """Ensures the agent uses a strictly allowed Gemini 3 model."""
-        if self.model_name not in [self.MODEL_FLASH, self.MODEL_PRO]:
-            raise ValueError(
-                f"Invalid model '{self.model_name}'. "
-                f"Must be one of: {self.MODEL_FLASH}, {self.MODEL_PRO}"
+        try:
+            if config is None:
+                config = types.GenerateContentConfig(
+                    temperature=0.7,
+                    top_p=0.95,
+                    max_output_tokens=2048,
+                    # 👇 CONFIGURACIÓN DE SEGURIDAD MODIFICADA PARA EDUCACIÓN SEXUAL 👇
+                    safety_settings=[
+                        types.SafetySetting(
+                            category='HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                            # 'BLOCK_NONE' permite contenido educativo/biológico sobre sexo.
+                            # 'BLOCK_ONLY_HIGH' a veces sigue censurando.
+                            threshold='BLOCK_NONE' 
+                        ),
+                        types.SafetySetting(
+                            category='HARM_CATEGORY_HARASSMENT',
+                            threshold='BLOCK_ONLY_HIGH'
+                        ),
+                        types.SafetySetting(
+                            category='HARM_CATEGORY_HATE_SPEECH',
+                            threshold='BLOCK_ONLY_HIGH'
+                        ),
+                        types.SafetySetting(
+                            category='HARM_CATEGORY_DANGEROUS_CONTENT',
+                            threshold='BLOCK_ONLY_HIGH'
+                        )
+                    ]
+                )
+            
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=contents,
+                config=config
             )
+            
+            # Check if response was blocked by safety filters
+            if response and not response.text:
+                logger.warning(f"⚠️ [{self.__class__.__name__}] Response has no text (possibly blocked by safety filters)")
+                if hasattr(response, 'candidates') and response.candidates:
+                    for candidate in response.candidates:
+                        if hasattr(candidate, 'finish_reason'):
+                            logger.warning(f"   Finish reason: {candidate.finish_reason}")
+                        if hasattr(candidate, 'safety_ratings'):
+                            logger.warning(f"   Safety ratings: {candidate.safety_ratings}")
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"❌ [{self.__class__.__name__}] Gemini API error: {e}", exc_info=True)
+            raise
 
     @abstractmethod
     async def process(self, input_data: dict) -> dict | list:

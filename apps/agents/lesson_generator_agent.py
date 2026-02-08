@@ -13,13 +13,11 @@ import json
 import os
 import logging
 from typing import Dict, Any, List
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# Configure Gemini API
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
 
 class LessonGeneratorAgent:
@@ -29,17 +27,21 @@ class LessonGeneratorAgent:
     """
     
     def __init__(self):
+        self.api_key = os.getenv('GEMINI_API_KEY')
+        if not self.api_key:
+            raise ValueError("GEMINI_API_KEY is not set")
+            
+        self.client = genai.Client(api_key=self.api_key)
         self.model_name = "gemini-3-flash-preview"  # GEMINI 3 FLASH
-        self.generation_config = {
-            "temperature": 0.3,  # Low temperature for following instructions
-            "top_p": 0.8,
-            "top_k": 40,
-            "max_output_tokens": 8192,  # Allow longer responses
-        }
-        self.model = genai.GenerativeModel(
-            model_name=self.model_name,
-            generation_config=self.generation_config
+        
+        self.generation_config = types.GenerateContentConfig(
+            temperature=0.3,  # Low temperature for following instructions
+            top_p=0.8,
+            top_k=40,
+            max_output_tokens=8192,  # Allow longer responses
+            response_mime_type='application/json'
         )
+        
         self.logger = logging.getLogger(__name__)
         self.logger.info(f"Initialized LessonGeneratorAgent with {self.model_name}")
     
@@ -71,8 +73,12 @@ class LessonGeneratorAgent:
         prompt = self._build_lesson_prompt(topic, level, learning_style, age, alias, language, excluded_topics)
         
         try:
-            self.logger.info(f"Generating lesson with Gemini 3 Flash (temp={self.generation_config['temperature']})")
-            response = self.model.generate_content(prompt)
+            self.logger.info(f"Generating lesson with Gemini 3 Flash (temp={self.generation_config.temperature})")
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=self.generation_config
+            )
             lesson_data = self._parse_lesson_response(response.text)
             
             # Add metadata

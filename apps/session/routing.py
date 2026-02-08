@@ -7,7 +7,7 @@ from . import consumers
 
 websocket_urlpatterns = [
     re_path(
-        r'ws/session/(?P<session_id>\w+)/$',
-        consumers.SessionConsumer.as_asgi()
+        r'ws/session/$',
+        consumers.KairosConsumer.as_asgi()
     ),
 ]
