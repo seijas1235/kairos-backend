@@ -343,7 +343,7 @@ export class EmotionDetectionService {
 - **Scalability:** Decoupled design allows for easy addition of new emotional states or learning strategies.
 
 ### Real-World Impact
-- **Inclusive Education:** Particularly effective for neurodivergent students (ADHD, Autism) who benefit from immediate feedback.
+- **Inclusive Education:** Designed to support diverse learning styles by adapting explanations dynamically.
 - **Privacy-First:** "Edge-like" processing where video frames are analyzed in memory and never stored.
 
 ### Technical Excellence

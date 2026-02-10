@@ -17,7 +17,7 @@ class KairosAgent(ABC):
     def __init__(self):
         # Allowed models - Loaded from .env
         # Flash model (fast, cheaper, for camera/emotion)
-        self.MODEL_FLASH = getattr(settings, 'GEMINI_FLASH_MODEL', 'gemini-1.5-flash')
+        self.MODEL_FLASH = getattr(settings, 'GEMINI_FLASH_MODEL', 'gemini-3-flash-preview')
         # Pro model (powerful, for reasoning/content)
         self.MODEL_PRO = getattr(settings, 'GEMINI_PRO_MODEL', 'gemini-3-pro-preview')
 
@@ -31,7 +31,7 @@ class KairosAgent(ABC):
         
         # Log agent initialization
         agent_name = self.__class__.__name__
-        logger.info(f"🤖 [{agent_name}] Initialized with model: {self.model_name}")
+        logger.info(f"[{agent_name}] Initialized with model: {self.model_name}")
 
     @abstractmethod
     def get_model_name(self) -> str:
@@ -41,32 +41,20 @@ class KairosAgent(ABC):
         pass
 
     def validate_model_name(self):
-        """Ensures the agent uses a valid Gemini model (Cleaned list for Hackathon)."""
+        """Ensures the agent uses a valid Gemini model."""
         allowed_models = [
-            # --- Gemini 3 (The Star of the Show) ---
+            # Strictly Gemini 3 for this implementation
             'gemini-3-pro-preview',
             'gemini-3-flash-preview',
-            
-            # --- Gemini 2.0 (High Speed / Next Gen) ---
-            'gemini-2.0-flash-exp',
-            'gemini-2.0-flash',
-            
-            # --- Gemini 1.5 (Stable Workhorses) ---
-            'gemini-1.5-flash',
-            'gemini-1.5-flash-001',
-            'gemini-1.5-flash-002',     # Versión recomendada estable
-            'gemini-1.5-flash-latest',
-            'gemini-1.5-pro',
-            'gemini-1.5-pro-001',
-            'gemini-1.5-pro-002',       # Versión recomendada estable
-            'gemini-1.5-pro-latest',
+            'gemini-3.0-pro',
+            'gemini-3.0-flash'
         ]
         
         # Check if model name contains any of the allowed patterns
         is_valid = any(allowed in self.model_name for allowed in allowed_models)
         
         if not is_valid:
-            logger.warning(f"⚠️  Model '{self.model_name}' not in standard whitelist. Proceeding anyway (Experimental Mode).")
+            logger.warning(f"Model '{self.model_name}' not in standard whitelist. Proceeding in Experimental Mode.")
 
     def _generate_content(self, contents, config: types.GenerateContentConfig = None) -> types.GenerateContentResponse:
         """

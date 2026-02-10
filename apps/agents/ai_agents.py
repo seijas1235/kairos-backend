@@ -127,8 +127,8 @@ def verify_gemini_3_only() -> bool:
     """
     for agent_name, model in AGENT_MODELS.items():
         if 'gemini-3' not in model:
-            print(f"❌ {agent_name} uses invalid model: {model}")
+            print(f"{agent_name} uses invalid model: {model}")
             return False
     
-    print("✅ All agents use Gemini 3 models")
+    print("All agents use Gemini 3 models")
     return True
