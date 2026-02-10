@@ -336,7 +336,7 @@ export class EmotionDetectionService {
 
 ### Strategic Use of Gemini Models
 - **Hybrid Approach:** Leverages **Gemini 3 Pro** for deep cognitive tasks (curriculum, assessment) and **Gemini 3 Flash** for low-latency tasks (real-time emotion detection).
-- **Cost & Speed Optimization:** Balances high-quality reasoning with millisecond-level response times.
+- **Cost & Speed Optimization:** Balances high-quality reasoning with real-time response times.
 
 ### Multi-Agent Architecture
 - **Orchestration:** 5 specialized agents working in harmony.
@@ -347,17 +347,17 @@ export class EmotionDetectionService {
 - **Privacy-First:** "Edge-like" processing where video frames are analyzed in memory and never stored.
 
 ### Technical Excellence
-- **Real-Time WebSocket:** Full duplex communication for instant feedback (no polling).
+- **Real-Time WebSocket:** Designed for low-latency real-time interaction using WebSockets and asynchronous processing.
 - **Asynchronous Processing:** Non-blocking Python/Django implementation for high performance.
 
 ---
 
 ## Performance Metrics
 
-- **Emotion Detection**: < 1 second (Gemini 3 Flash)
-- **Content Adaptation**: 2-3 seconds (Gemini 3 Pro)
-- **Assessment**: 3-4 seconds (Gemini 3 Pro)
-- **WebSocket Latency**: < 100ms
+- **Emotion Detection**: Real-time analysis (Gemini 3 Flash)
+- **Content Adaptation**: Context-aware generation (Gemini 3 Pro)
+- **Assessment**: Intelligent evaluation (Gemini 3 Pro)
+- **Real-Time Interaction**: Optimized via WebSockets
 
 ---
 
