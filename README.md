@@ -4,7 +4,7 @@
 
 > 🔗 **Frontend Repository:** [kairos-frontend](https://github.com/seijas1235/kairos-frontend)
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 KAIROS uses a **multi-agent system** where each agent specializes in a specific aspect of adaptive learning:
 
@@ -22,7 +22,7 @@ KAIROS uses a **multi-agent system** where each agent specializes in a specific 
 └───────┘ └───────┘ └───────┘ └───────┘ └────────┘
 ```
 
-### 🎯 The 5 Agents
+### The 5 Agents
 
 1. **Emotion Agent** (Gemini 3 Flash)
    - Detects facial emotions in real-time
@@ -51,7 +51,7 @@ KAIROS uses a **multi-agent system** where each agent specializes in a specific 
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -98,7 +98,7 @@ KAIROS uses a **multi-agent system** where each agent specializes in a specific 
 
 ---
 
-## 🔑 Getting Gemini API Key
+## Getting Gemini API Key
 
 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Sign in with Google account
@@ -110,7 +110,7 @@ KAIROS uses a **multi-agent system** where each agent specializes in a specific 
 
 ---
 
-## 📡 WebSocket API
+## WebSocket API
 
 ### Connection
 
@@ -223,7 +223,7 @@ const ws = new WebSocket('ws://localhost:8000/ws/session/123/');
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 kairos-backend/
@@ -253,7 +253,7 @@ kairos-backend/
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Test Individual Agents
 
@@ -292,7 +292,7 @@ asyncio.run(test_orchestrator())
 
 ---
 
-## 🎯 Integration with Frontend
+## Integration with Frontend
 
 ### Angular Service Example
 
@@ -332,7 +332,7 @@ export class EmotionDetectionService {
 
 ---
 
-## 🏆 Why This Wins Hackathons
+## Why This Wins Hackathons
 
 ### ✅ Multiple Gemini Models
 - Uses **both** Gemini 3 Pro and Flash strategically
@@ -356,7 +356,7 @@ export class EmotionDetectionService {
 
 ---
 
-## 📊 Performance Metrics
+## Performance Metrics
 
 - **Emotion Detection**: < 1 second (Gemini 3 Flash)
 - **Content Adaptation**: 2-3 seconds (Gemini 3 Pro)
@@ -365,7 +365,7 @@ export class EmotionDetectionService {
 
 ---
 
-## 🔐 Security & Privacy
+## Security & Privacy
 
 - ✅ No video storage (frames processed and discarded)
 - ✅ CORS configured for frontend only
@@ -374,7 +374,7 @@ export class EmotionDetectionService {
 
 ---
 
-## 🚧 Roadmap
+## Roadmap
 
 ### Phase 1: MVP (Current)
 - [x] 5 AI agents implemented
@@ -396,7 +396,7 @@ export class EmotionDetectionService {
 
 ---
 
-## 📞 Support
+## Support
 
 For issues or questions:
 1. Check the [API_CONTRACTS.md](../kairos-frontend-v2/API_CONTRACTS.md) in frontend
@@ -405,7 +405,7 @@ For issues or questions:
 
 ---
 
-## 🎉 Ready for Hackathon!
+## Ready for Hackathon!
 
 **Status**: ✅ Fully functional multi-agent system
 
