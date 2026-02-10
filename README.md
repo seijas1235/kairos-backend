@@ -88,10 +88,12 @@ KAIROS uses a **multi-agent system** where each agent specializes in a specific 
    python manage.py migrate
    ```
 
-6. **Run server:**
+6. **Run server with Daphne (WebSocket support):**
    ```bash
-   python manage.py runserver
+   daphne kairos.asgi:application
    ```
+   
+   Server will be available at `http://localhost:8000`
 
 ---
 
@@ -409,7 +411,7 @@ For issues or questions:
 **Next Steps**:
 1. Get Gemini API key
 2. Configure `.env`
-3. Run `python manage.py runserver`
+3. Run `daphne kairos.asgi:application`
 4. Connect frontend at `http://localhost:4200`
 5. **Win the hackathon!** 🏆
 
