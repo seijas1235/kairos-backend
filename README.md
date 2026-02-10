@@ -1,8 +1,8 @@
 # KAIROS Backend - Multi-Agent AI Tutor System
 
-🤖 **5 Specialized AI Agents** powered by **Gemini 3** for adaptive learning
+**5 Specialized AI Agents** powered by **Gemini 3** for adaptive learning
 
-> 🔗 **Frontend Repository:** [kairos-frontend](https://github.com/seijas1235/kairos-frontend)
+> **Frontend Repository:** [kairos-frontend](https://github.com/seijas1235/kairos-frontend)
 
 ## Architecture Overview
 
@@ -228,7 +228,7 @@ const ws = new WebSocket('ws://localhost:8000/ws/session/123/');
 ```
 kairos-backend/
 ├── apps/
-│   ├── agents/                    # 🤖 Multi-Agent System
+│   ├── agents/                    #  Multi-Agent System
 │   │   ├── base_agent.py         # Base class for all agents
 │   │   ├── emotion_agent.py      # Emotion detection (Flash)
 │   │   ├── content_adapter_agent.py  # Content adaptation (Pro)
@@ -332,27 +332,23 @@ export class EmotionDetectionService {
 
 ---
 
-## Why This Wins Hackathons
+## Key Innovations & Technical Highlights
 
-### ✅ Multiple Gemini Models
-- Uses **both** Gemini 3 Pro and Flash strategically
-- Pro for quality (content, assessment, planning)
-- Flash for speed (emotions, personality)
+### Strategic Use of Gemini Models
+- **Hybrid Approach:** Leverages **Gemini 3 Pro** for deep cognitive tasks (curriculum, assessment) and **Gemini 3 Flash** for low-latency tasks (real-time emotion detection).
+- **Cost & Speed Optimization:** Balances high-quality reasoning with millisecond-level response times.
 
-### ✅ Multi-Agent Architecture
-- 5 specialized agents working together
-- Demonstrates advanced AI orchestration
-- Scalable and maintainable design
+### Multi-Agent Architecture
+- **Orchestration:** 5 specialized agents working in harmony.
+- **Scalability:** Decoupled design allows for easy addition of new emotional states or learning strategies.
 
-### ✅ Real-World Impact
-- Helps students with TDAH, Autism, learning differences
-- Privacy-first approach (no video storage)
-- Measurable learning improvements
+### Real-World Impact
+- **Inclusive Education:** Particularly effective for neurodivergent students (ADHD, Autism) who benefit from immediate feedback.
+- **Privacy-First:** "Edge-like" processing where video frames are analyzed in memory and never stored.
 
-### ✅ Technical Excellence
-- WebSocket for real-time communication
-- Async/await for performance
-- Clean architecture with separation of concerns
+### Technical Excellence
+- **Real-Time WebSocket:** Full duplex communication for instant feedback (no polling).
+- **Asynchronous Processing:** Non-blocking Python/Django implementation for high performance.
 
 ---
 
@@ -367,10 +363,10 @@ export class EmotionDetectionService {
 
 ## Security & Privacy
 
-- ✅ No video storage (frames processed and discarded)
-- ✅ CORS configured for frontend only
-- ✅ Environment variables for sensitive data
-- ✅ Session-based isolation
+- No video storage (frames processed and discarded)
+- CORS configured for frontend only
+- Environment variables for sensitive data
+- Session-based isolation
 
 ---
 
@@ -404,18 +400,3 @@ For issues or questions:
 3. Test WebSocket connection with browser console
 
 ---
-
-## Ready for Hackathon!
-
-**Status**: ✅ Fully functional multi-agent system
-
-**Next Steps**:
-1. Get Gemini API key
-2. Configure `.env`
-3. Run `daphne kairos.asgi:application`
-4. Connect frontend at `http://localhost:4200`
-5. **Win the hackathon!** 🏆
-
----
-
-**Built with ❤️ for Gemini 3 Developer Competition**
