@@ -53,17 +53,17 @@ __all__ = [
 
 # Model assignments for reference
 AGENT_MODELS = {
-    'EmotionAgent': 'gemini-3.0-flash',      # Fast emotion detection (3-second intervals)
-    'ContentAdapterAgent': 'gemini-3.0-pro',  # Intelligent content adaptation
-    'LearningPathAgent': 'gemini-3.0-pro',    # Learning path optimization
-    'AssessmentAgent': 'gemini-3.0-pro',      # Comprehension evaluation
-    'PersonalityAgent': 'gemini-3.0-flash'    # Tone personalization
+    'EmotionAgent': 'gemini-3-flash-preview',      # Fast emotion detection (3-second intervals)
+    'ContentAdapterAgent': 'gemini-3-pro-preview',  # Intelligent content adaptation
+    'LearningPathAgent': 'gemini-3-pro-preview',    # Learning path optimization
+    'AssessmentAgent': 'gemini-3-pro-preview',      # Comprehension evaluation
+    'PersonalityAgent': 'gemini-3-flash-preview'    # Tone personalization
 }
 
 # Agent descriptions for documentation
 AGENT_DESCRIPTIONS = {
     'EmotionAgent': {
-        'model': 'gemini-3.0-flash',
+        'model': 'gemini-3-flash-preview',
         'purpose': 'Detects facial emotions in real-time',
         'input': 'Base64 encoded video frames',
         'output': 'Emotion state (engaged|confused|bored|frustrated|neutral)',
@@ -71,7 +71,7 @@ AGENT_DESCRIPTIONS = {
         'system_prompt': 'Expert in body language and facial expression analysis'
     },
     'ContentAdapterAgent': {
-        'model': 'gemini-3.0-pro',
+        'model': 'gemini-3-pro-preview',
         'purpose': 'Transforms content based on detected emotions',
         'input': 'Current content + emotion state',
         'output': 'Adapted content with strategy explanation',
@@ -79,21 +79,21 @@ AGENT_DESCRIPTIONS = {
         'system_prompt': 'Expert educational content adapter'
     },
     'LearningPathAgent': {
-        'model': 'gemini-3.0-pro',
+        'model': 'gemini-3-pro-preview',
         'purpose': 'Optimizes lesson sequencing and pacing',
         'input': 'Emotion history + completed lessons + user profile',
         'output': 'Next lesson recommendation with reasoning',
         'system_prompt': 'Expert learning path optimizer'
     },
     'AssessmentAgent': {
-        'model': 'gemini-3.0-pro',
+        'model': 'gemini-3-pro-preview',
         'purpose': 'Evaluates comprehension and identifies knowledge gaps',
         'input': 'Student responses + emotion data + time spent',
         'output': 'Comprehension score + knowledge gaps + recommendations',
         'system_prompt': 'Expert educational assessor'
     },
     'PersonalityAgent': {
-        'model': 'gemini-3.0-flash',
+        'model': 'gemini-3-flash-preview',
         'purpose': 'Personalizes teaching tone and style',
         'input': 'User profile + current emotion + topic',
         'output': 'Personality parameters (tone, complexity, humor, etc.)',
