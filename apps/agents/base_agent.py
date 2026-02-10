@@ -14,13 +14,13 @@ class KairosAgent(ABC):
     Models are now configurable via .env (GEMINI_FLASH_MODEL and GEMINI_PRO_MODEL)
     """
 
-    # Allowed models - Loaded from .env
-    # Flash model (fast, cheaper, for camera/emotion)
-    MODEL_FLASH = getattr(settings, 'GEMINI_FLASH_MODEL', 'gemini-1.5-flash')
-    # Pro model (powerful, for reasoning/content)
-    MODEL_PRO = getattr(settings, 'GEMINI_PRO_MODEL', 'gemini-3-pro-preview')
-
     def __init__(self):
+        # Allowed models - Loaded from .env
+        # Flash model (fast, cheaper, for camera/emotion)
+        self.MODEL_FLASH = getattr(settings, 'GEMINI_FLASH_MODEL', 'gemini-1.5-flash')
+        # Pro model (powerful, for reasoning/content)
+        self.MODEL_PRO = getattr(settings, 'GEMINI_PRO_MODEL', 'gemini-3-pro-preview')
+
         self.api_key = getattr(settings, "GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is not set in settings or environment variables.")

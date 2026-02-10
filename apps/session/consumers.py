@@ -1,5 +1,6 @@
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from apps.agents.orchestrator import Orchestrator
+from apps.session.demo_script import run_demo_sequence
 import logging
 import json
 import asyncio
@@ -15,6 +16,7 @@ class KairosConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         # Initialize the Orchestrator for this session
         self.orchestrator = Orchestrator()
+        self.demo_mode_active = False  # Flag to block other messages during demo
         await self.accept()
         logger.info("=" * 60)
         logger.info("🔌 WebSocket connected: KairosConsumer")
@@ -44,6 +46,29 @@ class KairosConsumer(AsyncJsonWebsocketConsumer):
         Supports: emotion frames, start_lesson, user_question, text input
         """
         try:
+            logger.info("=" * 60)
+            logger.info("📥 RECEIVED MESSAGE IN CONSUMER")
+            logger.info(f"   Keys: {list(content.keys())}")
+            logger.info(f"   Full content: {content}")
+            logger.info("=" * 60)
+            
+            # 🚫 Block all messages if demo mode is running
+            if self.demo_mode_active:
+                logger.warning("⚠️ DEMO MODE ACTIVE: Ignoring incoming message")
+                return
+            
+            # 🎬 DEMO MODE: Intercept "EVENT_HORIZON" or "EVENT HORIZON" topic
+            topic = content.get('topic', '')
+            # Normalize: remove spaces and convert to uppercase for comparison
+            normalized_topic = topic.replace(' ', '').upper()
+            logger.info(f"📨 Received message with topic: '{topic}' (normalized: '{normalized_topic}')")
+            
+            if 'start_lesson' in content and normalized_topic == 'EVENTHORIZON':
+                logger.info("🎬🎬🎬 DEMO MODE TRIGGERED IN CONSUMER 🎬🎬🎬")
+                self.demo_mode_active = True  # Block other messages
+                asyncio.create_task(run_demo_sequence(self))
+                return  # Skip orchestrator, use demo script instead
+            
             # Log incoming message type
             msg_keys = list(content.keys())
             if 'user_question' in content:
@@ -52,11 +77,18 @@ class KairosConsumer(AsyncJsonWebsocketConsumer):
                 logger.info("🎭 Emotion frame received")
             elif 'start_lesson' in content:
                 logger.info(f"🚀 Start lesson: {content.get('topic', 'N/A')}")
+
             else:
                 logger.info(f"📨 Message received with keys: {msg_keys}")
             
             # Process through orchestrator
             response_data = await self.orchestrator.process_websocket_message(content)
+            
+            # 🎬 DEMO MODE: Check if orchestrator detected demo trigger
+            if response_data.get('type') == 'demo_mode' and response_data.get('trigger'):
+                logger.info("🎬🎬🎬 DEMO MODE ACTIVATED BY ORCHESTRATOR 🎬🎬🎬")
+                asyncio.create_task(run_demo_sequence(self))
+                return
             
             # 🔍 DEBUG: Log response type
             logger.info(f"[DEBUG] Response type: {response_data.get('type', 'N/A')}")

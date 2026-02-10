@@ -75,10 +75,28 @@ class Orchestrator:
         if 'type' in message and message['type'] == 'session_complete':
             logger.info("🏁 SESSION COMPLETE detected")
             return await self._handle_session_complete(message)
-
-        # 1. Handle Frame (Emotion Detection)
+        # === ROUTING LOGIC ===
+        
+        # 🎬 DEMO MODE: Check for demo trigger FIRST
+        if 'start_lesson' in message:
+            topic = message.get('topic', '')
+            normalized_topic = topic.replace(' ', '').replace('_', '').upper()
+            
+            if normalized_topic == 'EVENTHORIZON':
+                logger.info("=" * 60)
+                logger.info("🎬 DEMO MODE DETECTED IN ORCHESTRATOR")
+                logger.info(f"   Topic: '{topic}'")
+                logger.info("   Returning demo flag to consumer...")
+                logger.info("=" * 60)
+                return {
+                    'type': 'demo_mode',
+                    'trigger': True,
+                    'topic': topic
+                }
+        
+        # 1. Frame (Image) → EmotionAgent → ContentAdapterAgent
         if 'frame' in message:
-            logger.info("🎭 Routing to: EmotionAgent")
+            logger.info("🎭 [Route] Frame detected → EmotionAgent")
             self.agent_usage_stats["EmotionAgent"] += 1
             
             # Update context if frontend sends fresh data (prioriza datos del mensaje)

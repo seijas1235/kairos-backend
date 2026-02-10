@@ -2,6 +2,8 @@
 
 🤖 **5 Specialized AI Agents** powered by **Gemini 3** for adaptive learning
 
+> 🔗 **Frontend Repository:** [kairos-frontend](https://github.com/seijas1235/kairos-frontend)
+
 ## 🏗️ Architecture Overview
 
 KAIROS uses a **multi-agent system** where each agent specializes in a specific aspect of adaptive learning:
