@@ -63,7 +63,8 @@ KAIROS uses a **multi-agent system** where each agent specializes in a specific 
 
 1. **Clone and navigate:**
    ```bash
-   cd C:\kairos\kairos-backend
+   git clone https://github.com/seijas1235/kairos-backend.git
+   cd kairos-backend
    ```
 
 2. **Create virtual environment:**
